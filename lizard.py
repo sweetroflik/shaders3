@@ -25,19 +25,20 @@ from sdf import sd_circle, sd_segment, sd_moon
 from spine import SpineShader, SDSpine
 from colors import black
 
-# Параметры осно��ного позвоночника (тело ящерицы)
-BODY_RADII = np.array([3.5, 4.0, 4.2, 4.0, 3.8, 3.5, 3.2, 2.8, 2.2, 1.5, 1.0, 0.5]) * 0.01
-BODY_LENGTHS = (0.06,) * (len(BODY_RADII) - 1)
+# Параметры основного позвоночника (тело ящерицы)
+# Увеличиваем размеры в 5 раз чтобы было видно на экране
+BODY_RADII = np.array([3.5, 4.0, 4.2, 4.0, 3.8, 3.5, 3.2, 2.8, 2.2, 1.5, 1.0, 0.5]) * 0.05
+BODY_LENGTHS = (0.3,) * (len(BODY_RADII) - 1)  # Увеличиваем в 5 раз с 0.06 на 0.3
 
 # Параметры хвоста (второй позвоночник)
-TAIL_RADII = np.array([1.2, 1.4, 1.3, 1.2, 1.0, 0.8, 0.5, 0.2]) * 0.01
-TAIL_LENGTHS = (0.05,) * (len(TAIL_RADII) - 1)
+TAIL_RADII = np.array([1.2, 1.4, 1.3, 1.2, 1.0, 0.8, 0.5, 0.2]) * 0.05
+TAIL_LENGTHS = (0.25,) * (len(TAIL_RADII) - 1)  # Увеличиваем в 5 раз с 0.05 на 0.25
 
 # Индексы ног (на каких сегментах тела расположены)
 LIMBS_IDX = (3, 5, 7, 9)  # 4 ноги
 
 # Параметры ног
-LIMBS_LEN = np.array([4.5, 4.5, 4.0, 4.0])  # длина каждой ноги
+LIMBS_LEN = np.array([4.5, 4.5, 4.0, 4.0]) * 0.05  # длина каждой ноги
 LIMBS_ANG = np.array([np.pi / 4, np.pi / 4, np.pi / 4, np.pi / 4])  # угол ног
 
 # Цвет ящерицы (зеленовато-коричневый)
@@ -99,6 +100,9 @@ class SDLizard(SDSpine):
         self.tail_nodes = ti.Vector.field(2, dtype=ti.f32, shape=self.tail_n)
         self.tail_radii = to_field(tail_radii)
         
+        # Для обновления хвоста - сохраняем направления его сегментов
+        self.tail_links = ti.Vector.field(2, dtype=ti.f32, shape=self.tail_n - 1)
+        
         # Ноги
         self.limbs_idx = to_field(limbs_idx, nptype=np.int32, titype=ti.i32)
         self.limbs_len = to_field(limbs_len)
@@ -138,16 +142,25 @@ class SDLizard(SDSpine):
     def update_tail(self):
         """
         Обновляет позиции узлов хвоста.
-        Хвост начинается от конца тела.
+        Хвост начинается от конца тела и гибко следует за ним.
+        ВАЖНО: хвост должен быть гибким и адаптироваться к кривизне тела!
         """
         # Хвост начинается от последнего узла тела
         self.tail_nodes[0] = self.nodes[self.n - 1]
         
-        # Используем направление по��леднего сегмента тела для начального направления хвоста
-        tail_align = self.links[self.n - 2]
+        # Направление начала хвоста совпадает с направлением конца тела
+        # Последний link[n-2] - это направление от nodes[n-2] к nodes[n-1]
+        tail_direction = self.links[self.n - 2]
         
+        # Хвост развивается итеративно, но при этом имеет собственную гибкость
         for i in ti.static(range(1, self.tail_n)):
-            self.tail_nodes[i] = self.tail_nodes[i - 1] + tail_align * self.tail_lengths[i - 1]
+            # Новая позиция хвоста следует в направлении хвоста с фиксированной длиной
+            next_pos = self.tail_nodes[i - 1] + tail_direction * self.tail_lengths[i - 1]
+            self.tail_nodes[i] = next_pos
+            
+            # Сохраняем напра��ление каждого сегмента хвоста
+            if i < self.tail_n - 1:
+                self.tail_links[i - 1] = tail_direction
 
     @ti.func
     def update_limbs(self, t: ti.f32):
@@ -193,10 +206,10 @@ class SDLizard(SDSpine):
     @ti.func
     def calc_distance(self, uv: tm.vec2) -> ti.f32:
         """
-        Вычисляет расстояние до поверхности я��ерицы.
+        Вычисляет расстояние до поверхности ящерицы.
         Включает: тело, хвост, ноги, глаза.
         
-        :param uv: координата в пространстве
+        :param uv: координата в простра��стве
         :return: расстояние до ящерицы
         """
         d = LARGE_DIST
@@ -232,7 +245,7 @@ class SDLizard(SDSpine):
 
 class LizardShader(SpineShader):
     """
-    Шейдер для отрисовки ящерицы с поддержкой модификаций.
+    Шейдер для отрисовки ящериц�� с поддержкой модификаций.
     
     Модификации:
     1б - следование за мышью с запозданием
@@ -243,7 +256,7 @@ class LizardShader(SpineShader):
     def __init__(
         self,
         lizard: SDLizard,
-        smooth: ti.f32 = 0.005,
+        smooth: ti.f32 = 0.01,
         scale: ti.f32 = 1.0,
         color: tm.vec3 = LIZARD_COLOR,
         bgcolor: tm.vec3 = None,
@@ -259,7 +272,7 @@ class LizardShader(SpineShader):
         :param scale: масштаб изображения
         :param color: цвет ящерицы
         :param bgcolor: цвет фона
-        :param title: название о��на
+        :param title: название окна
         :param res: разрешение экрана
         :param gamma: гамма-коррекция
         """
@@ -279,7 +292,7 @@ class LizardShader(SpineShader):
         self.lizard = lizard
         
         # Для модификации 1б - параметры следования за мышью
-        self.follow_speed = 0.08  # коэффициент ускорения
+        self.follow_speed = 0.1  # коэффициент ускорения
 
     @ti.kernel
     def init(self):
@@ -288,6 +301,7 @@ class LizardShader(SpineShader):
         Размещает узлы позвоночников в начальных позициях.
         """
         self.lizard.place_nodes()
+        self.lizard.update_body()
         self.lizard.update_tail()
         
         # Инициализируем позиции ног
@@ -330,10 +344,11 @@ class LizardShader(SpineShader):
         # Обновляем позицию головы ящерицы
         self.lizard.nodes[0] += target_direction * speed
         
-        # Обновляем тело
+        # ВАЖНО: сначала обновляем тело, ПОТОМ хвост!
+        # Хвост зависит от links, которые вычисляются в update_body
         self.lizard.update_body()
         
-        # Обновляем хвост
+        # Обновляем хвост (ПОСЛЕ тела!)
         self.lizard.update_tail()
         
         # Обновляем ноги (модификация 4б)
@@ -343,11 +358,10 @@ class LizardShader(SpineShader):
 if __name__ == "__main__":
     ti.init(arch=ti.cpu)
 
-    # Создаем ящерицу с центром в (0, 0)
+    # Создаем ящерицу
     lizard = SDLizard(body_smooth=0.1)
     
-    # Создаем шейдер с правильным масштабом
-    # scale=1.0 - объект занимает нормальный размер на экране
+    # Создаем шейдер
     shader = LizardShader(lizard, scale=1.0, smooth=0.01)
     
     # Запускаем главный цикл
