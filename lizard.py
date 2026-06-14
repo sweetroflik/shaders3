@@ -25,7 +25,7 @@ from sdf import sd_circle, sd_segment, sd_moon
 from spine import SpineShader, SDSpine
 from colors import black
 
-# Параметры осно��ного позвоночника (тело ящерицы)
+# Параметры основного позвоночника (тело ящерицы)
 BODY_RADII = np.array([3.5, 4.0, 4.2, 4.0, 3.8, 3.5, 3.2, 2.8, 2.2, 1.5, 1.0, 0.5]) * 0.01
 BODY_LENGTHS = (0.06,) * (len(BODY_RADII) - 1)
 
@@ -83,7 +83,7 @@ class SDLizard(SDSpine):
         :param head: начальная позиция головы
         :param align: направление начального движения
         :param limbs_idx: индексы сегментов, где расположены ноги
-        :param limbs_len: длины н��г
+        :param limbs_len: длины ног
         :param limbs_ang: углы ног
         :param body_smooth: коэффициент сглаживания для тела
         """
@@ -143,31 +143,35 @@ class SDLizard(SDSpine):
         # Хвост начинается от последнего узла тела
         self.tail_nodes[0] = self.nodes[self.n - 1]
         
-        # Используем направление последнего сегмента тела для начального направления хвоста
+        # Используем направление по��леднего сегмента тела для начального направления хвоста
         tail_align = self.links[self.n - 2]
         
         for i in ti.static(range(1, self.tail_n)):
             self.tail_nodes[i] = self.tail_nodes[i - 1] + tail_align * self.tail_lengths[i - 1]
 
     @ti.func
-    def update_limbs(self, t: ti.f32, dt: ti.f32 = 0.016):
+    def update_limbs(self, t: ti.f32):
         """
         Обновляет позиции ног с эффектом шагания.
         Модификация 4б: упрощенное шагание (моментальное передвижение).
         
         :param t: текущее время
-        :param dt: шаг времени
         """
         step_duration = 0.3  # длительность одного шага
+        two_pi = 6.28318530718
         
         for j in ti.static(range(self.n_limbs)):
             # Определяем фазу шага для каждой ноги
             # Передние ноги движутся в противофазе с задними
-            phase_offset = 0.0 if j < 2 else ti.pi
-            phase = ti.fmod(t * 2.0 * ti.pi / step_duration + phase_offset, 2.0 * ti.pi)
+            phase_offset = 0.0 if j < 2 else 3.14159265359
+            
+            # Вычисляем фазу с использованием модуля
+            phase_value = t * two_pi / step_duration + phase_offset
+            # Нормализуем фазу в диапазон [0, 2*pi]
+            phase = phase_value - ti.floor(phase_value / two_pi) * two_pi
             
             # Движение ноги: фаза 0 - шаг вперед, фаза pi - шаг назад
-            is_stepping = phase > ti.pi
+            is_stepping = phase > 3.14159265359
             
             # Вычисляем целевую позицию ноги
             limb_idx = self.limbs_idx[j]
@@ -189,7 +193,7 @@ class SDLizard(SDSpine):
     @ti.func
     def calc_distance(self, uv: tm.vec2) -> ti.f32:
         """
-        Вычисляет расстояние до поверхности ящерицы.
+        Вычисляет расстояние до поверхности я��ерицы.
         Включает: тело, хвост, ноги, глаза.
         
         :param uv: координата в пространстве
@@ -298,7 +302,7 @@ class LizardShader(SpineShader):
         1. Обновление позиции головы на основе следования за мышью
         2. Обновление тела
         3. Обновление хвоста
-        4. Обновлен��е ног
+        4. Обновление ног
         
         Модификация 1б: ускорение зависит от расстояния до мыши.
         
@@ -317,7 +321,7 @@ class LizardShader(SpineShader):
         # Обновляем позицию головы ящерицы
         self.lizard.nodes[0] += target_direction * speed
         
-        # Обновляем тело (используем новое выравнивание из направления головы)
+        # Обновляем тело (��спользуем новое выравнивание из направления головы)
         self.lizard.update_body()
         
         # Обновляем хвост
