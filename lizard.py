@@ -23,9 +23,9 @@ from taichi import math as tm
 from core import LARGE_DIST, smoothmin, rot, to_field, hash21
 from sdf import sd_circle, sd_segment, sd_moon
 from spine import SpineShader, SDSpine
-from colors import heatmap_gradient, black
+from colors import black
 
-# Параметры основного позвоночника (тело ящерицы)
+# Параметры осно��ного позвоночника (тело ящерицы)
 BODY_RADII = np.array([3.5, 4.0, 4.2, 4.0, 3.8, 3.5, 3.2, 2.8, 2.2, 1.5, 1.0, 0.5]) * 0.01
 BODY_LENGTHS = (0.06,) * (len(BODY_RADII) - 1)
 
@@ -83,7 +83,7 @@ class SDLizard(SDSpine):
         :param head: начальная позиция головы
         :param align: направление начального движения
         :param limbs_idx: индексы сегментов, где расположены ноги
-        :param limbs_len: дли��ы ног
+        :param limbs_len: длины н��г
         :param limbs_ang: углы ног
         :param body_smooth: коэффициент сглаживания для тела
         """
@@ -296,9 +296,9 @@ class LizardShader(SpineShader):
         Основная функция расчета.
         Выполняет:
         1. Обновление позиции головы на основе следования за мышью
-        2. ��бновление тела
+        2. Обновление тела
         3. Обновление хвоста
-        4. Обновление ног
+        4. Обновлен��е ног
         
         Модификация 1б: ускорение зависит от расстояния до мыши.
         
@@ -317,10 +317,7 @@ class LizardShader(SpineShader):
         # Обновляем позицию головы ящерицы
         self.lizard.nodes[0] += target_direction * speed
         
-        # Обновляем выравнивание (направление позвоночника)
-        self.lizard.align = tm.normalize(target_direction)
-        
-        # Обновляем тело
+        # Обновляем тело (используем новое выравнивание из направления головы)
         self.lizard.update_body()
         
         # Обновляем хвост
