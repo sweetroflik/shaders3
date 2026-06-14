@@ -25,7 +25,7 @@ from sdf import sd_circle, sd_segment, sd_moon
 from spine import SpineShader, SDSpine
 from colors import black
 
-# Параметры основного позвоночника (тело ящерицы)
+# Параметры осно��ного позвоночника (тело ящерицы)
 BODY_RADII = np.array([3.5, 4.0, 4.2, 4.0, 3.8, 3.5, 3.2, 2.8, 2.2, 1.5, 1.0, 0.5]) * 0.01
 BODY_LENGTHS = (0.06,) * (len(BODY_RADII) - 1)
 
@@ -259,7 +259,7 @@ class LizardShader(SpineShader):
         :param scale: масштаб изображения
         :param color: цвет ящерицы
         :param bgcolor: цвет фона
-        :param title: название окна
+        :param title: название о��на
         :param res: разрешение экрана
         :param gamma: гамма-коррекция
         """
@@ -279,7 +279,7 @@ class LizardShader(SpineShader):
         self.lizard = lizard
         
         # Для модификации 1б - параметры следования за мышью
-        self.follow_speed = 0.05  # коэффициент ускорения
+        self.follow_speed = 0.08  # коэффициент ускорения
 
     @ti.kernel
     def init(self):
@@ -290,9 +290,18 @@ class LizardShader(SpineShader):
         self.lizard.place_nodes()
         self.lizard.update_tail()
         
+        # Инициализируем позиции ног
         for i in ti.static(range(self.lizard.n_limbs)):
-            self.lizard.limb_positions[i] = self.lizard.nodes[self.lizard.limbs_idx[i]]
-            self.lizard.limb_targets[i] = self.lizard.nodes[self.lizard.limbs_idx[i]]
+            limb_idx = self.lizard.limbs_idx[i]
+            attach_point = self.lizard.nodes[limb_idx]
+            side = 1.0 if i % 2 == 0 else -1.0
+            
+            # Начальная позиция ноги на земле
+            forward_offset = tm.normalize(self.lizard.links[limb_idx]) * self.lizard.limbs_len[i] * 0.5
+            side_offset = side * self.lizard.body_radii[limb_idx] * self.lizard.limbs_len[i] * 0.8
+            
+            self.lizard.limb_positions[i] = attach_point + forward_offset + tm.vec2(side_offset, -0.15)
+            self.lizard.limb_targets[i] = self.lizard.limb_positions[i]
 
     @ti.kernel
     def calculate(self, t: ti.f32, cursor: tm.vec2):
@@ -316,12 +325,12 @@ class LizardShader(SpineShader):
         distance_to_cursor = (cursor - current_head).norm()
         
         # Скорость движения возрастает с расстоянием до мыши
-        speed = self.follow_speed * tm.clamp(distance_to_cursor * 2.0, 0.1, 1.0)
+        speed = self.follow_speed * tm.clamp(distance_to_cursor * 2.0, 0.05, 1.0)
         
         # Обновляем позицию головы ящерицы
         self.lizard.nodes[0] += target_direction * speed
         
-        # Обновляем тело (��спользуем новое выравнивание из направления головы)
+        # Обновляем тело
         self.lizard.update_body()
         
         # Обновляем хвост
@@ -334,11 +343,12 @@ class LizardShader(SpineShader):
 if __name__ == "__main__":
     ti.init(arch=ti.cpu)
 
-    # Создаем ящерицу
+    # Создаем ящерицу с центром в (0, 0)
     lizard = SDLizard(body_smooth=0.1)
     
-    # Создаем шейдер
-    shader = LizardShader(lizard, scale=2)
+    # Создаем шейдер с правильным масштабом
+    # scale=1.0 - объект занимает нормальный размер на экране
+    shader = LizardShader(lizard, scale=1.0, smooth=0.01)
     
     # Запускаем главный цикл
     shader.main_loop()
