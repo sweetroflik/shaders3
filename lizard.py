@@ -23,6 +23,7 @@ from taichi import math as tm
 from core import LARGE_DIST, smoothmin, rot, to_field, hash21
 from sdf import sd_circle, sd_segment, sd_moon
 from spine import SpineShader, SDSpine
+from colors import heatmap_gradient, black
 
 # Параметры основного позвоночника (тело ящерицы)
 BODY_RADII = np.array([3.5, 4.0, 4.2, 4.0, 3.8, 3.5, 3.2, 2.8, 2.2, 1.5, 1.0, 0.5]) * 0.01
@@ -39,6 +40,9 @@ LIMBS_IDX = (3, 5, 7, 9)  # 4 ноги
 LIMBS_LEN = np.array([4.5, 4.5, 4.0, 4.0])  # длина каждой ноги
 LIMBS_ANG = np.array([np.pi / 4, np.pi / 4, np.pi / 4, np.pi / 4])  # угол ног
 
+# Цвет ящерицы (зеленовато-коричневый)
+LIZARD_COLOR = tm.vec3(0.6, 0.8, 0.3)
+
 
 @ti.data_oriented
 class SDLizard(SDSpine):
@@ -49,7 +53,7 @@ class SDLizard(SDSpine):
     - Основного позвоночника (тело)
     - Второго позвоночника (хвост)
     - Четырех ног
-    - Двух глаз
+    - Двух г��аз
     
     Поддерживает модификации:
     - Следование за мышью с запозданием
@@ -137,10 +141,10 @@ class SDLizard(SDSpine):
     @ti.func
     def update_tail(self):
         """
-        Обновляет позиции узлов хвоста.
+        Обновляет пози��ии узлов хвоста.
         Хвост начинается от конца тела.
         """
-        # Хвост начинается от последнего у��ла тела
+        # Хвост начинается от последнего узла тела
         self.tail_nodes[0] = self.nodes[self.n - 1]
         
         # Используем направление последнего сегмента тела для начального направления хвоста
@@ -241,7 +245,7 @@ class LizardShader(SpineShader):
         lizard: SDLizard,
         smooth: ti.f32 = 0.005,
         scale: ti.f32 = 1.0,
-        color: tm.vec3 = None,
+        color: tm.vec3 = LIZARD_COLOR,
         bgcolor: tm.vec3 = None,
         title: str = "Lizard Shader",
         res: tuple[int, int] | None = None,
@@ -259,11 +263,7 @@ class LizardShader(SpineShader):
         :param res: разрешение экрана
         :param gamma: гамма-коррекция
         """
-        if color is None:
-            from colors import heatmap_gradient
-            color = heatmap_gradient(0.6)  # Зеленовато-коричневый цвет
         if bgcolor is None:
-            from colors import black
             bgcolor = black
             
         super().__init__(
@@ -303,7 +303,7 @@ class LizardShader(SpineShader):
         1. Обновление позиции головы на основе следования за мышью
         2. Обновление тела
         3. Обновление хвоста
-        4. Обновление ног
+        4. ��бновление ног
         
         Модификация 1б: ускорение зависит от расстояния до мыши.
         
@@ -318,7 +318,7 @@ class LizardShader(SpineShader):
         # Скорость движения возрастает с расстоянием до мыши
         speed = self.follow_speed * tm.clamp(distance_to_cursor * 2.0, 0.1, 1.0)
         
-        # Обновляем позицию ��оловы ящерицы
+        # Обновляем позицию головы ящерицы
         self.lizard.nodes[0] += target_direction * speed
         self.lizard.current_pos = self.lizard.nodes[0]
         
@@ -336,7 +336,7 @@ class LizardShader(SpineShader):
 
 
 if __name__ == "__main__":
-    ti.init(arch=ti.opengl)
+    ti.init(arch=ti.cpu)
 
     # Создаем ящерицу
     lizard = SDLizard(body_smooth=0.1)
