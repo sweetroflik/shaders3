@@ -53,7 +53,7 @@ class SDLizard(SDSpine):
     - Основного позвоночника (тело)
     - Второго позвоночника (хвост)
     - Четырех ног
-    - Двух г��аз
+    - Двух глаз
     
     Поддерживает модификации:
     - Следование за мышью с запозданием
@@ -83,7 +83,7 @@ class SDLizard(SDSpine):
         :param head: начальная позиция головы
         :param align: направление начального движения
         :param limbs_idx: индексы сегментов, где расположены ноги
-        :param limbs_len: длины ног
+        :param limbs_len: дли��ы ног
         :param limbs_ang: углы ног
         :param body_smooth: коэффициент сглаживания для тела
         """
@@ -111,10 +111,6 @@ class SDLizard(SDSpine):
         self.limb_targets = ti.Vector.field(2, dtype=ti.f32, shape=self.n_limbs)
         self.limb_timers = ti.field(dtype=ti.f32, shape=self.n_limbs)
         
-        # Для модификации 1б - следование за мышью с запозданием
-        self.target_pos = tm.vec2(0.0, 0.0)
-        self.current_pos = head
-        
         # Глаза
         self.eye_offset = 0.04
         self.eye_size = 0.012
@@ -141,7 +137,7 @@ class SDLizard(SDSpine):
     @ti.func
     def update_tail(self):
         """
-        Обновляет пози��ии узлов хвоста.
+        Обновляет позиции узлов хвоста.
         Хвост начинается от конца тела.
         """
         # Хвост начинается от последнего узла тела
@@ -280,7 +276,6 @@ class LizardShader(SpineShader):
         
         # Для модификации 1б - параметры следования за мышью
         self.follow_speed = 0.05  # коэффициент ускорения
-        self.last_cursor_time = 0.0
 
     @ti.kernel
     def init(self):
@@ -301,9 +296,9 @@ class LizardShader(SpineShader):
         Основная функция расчета.
         Выполняет:
         1. Обновление позиции головы на основе следования за мышью
-        2. Обновление тела
+        2. ��бновление тела
         3. Обновление хвоста
-        4. ��бновление ног
+        4. Обновление ног
         
         Модификация 1б: ускорение зависит от расстояния до мыши.
         
@@ -312,15 +307,15 @@ class LizardShader(SpineShader):
         """
         # Модификация 1б - следование за мышью с запозданием
         # Ускорение зависит от расстояния до указателя мыши
-        target_direction = tm.normalize(cursor - self.lizard.current_pos)
-        distance_to_cursor = (cursor - self.lizard.current_pos).norm()
+        current_head = self.lizard.nodes[0]
+        target_direction = tm.normalize(cursor - current_head)
+        distance_to_cursor = (cursor - current_head).norm()
         
         # Скорость движения возрастает с расстоянием до мыши
         speed = self.follow_speed * tm.clamp(distance_to_cursor * 2.0, 0.1, 1.0)
         
         # Обновляем позицию головы ящерицы
         self.lizard.nodes[0] += target_direction * speed
-        self.lizard.current_pos = self.lizard.nodes[0]
         
         # Обновляем выравнивание (направление позвоночника)
         self.lizard.align = tm.normalize(target_direction)
