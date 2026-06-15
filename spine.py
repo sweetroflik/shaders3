@@ -77,6 +77,7 @@ class SDSpine(Spine, SDBase):
         self.r = r
         self.w = w
         self.g = g
+        self.velocity = ti.Vector.field(2, dtype=ti.f32, shape=())
 
     @ti.func
     def calc_distance(self, uv: tm.vec2) -> ti.f32:
@@ -138,12 +139,12 @@ class SpineShader(SDFShader):
     @ti.kernel
     def init(self):
         self.spine.place_nodes()
+        self.spine.velocity[None] = tm.vec2(0.0, 0.0)
 
-    @ti.kernel
     def calculate(self, t: ti.f32, cursor: tm.vec2):
-        w = tm.vec2(2.37, 4.68)
-        v = ti.sin(0.1 * t * w)
-        self.spine.move_to(v)
+        cursor *= self.scale
+        self.spine.follow_cursor(cursor, 1.0 / 60.0)
+
 
 
 if __name__ == "__main__":

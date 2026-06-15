@@ -52,6 +52,11 @@ class BaseShader:
 
             t = time.time() - start  # пересчет времени, прошедшего с первого кадра
             cursor = gui.get_cursor_pos()
+
+            cursor = tm.vec2(
+                (cursor[0] - 0.5) * self.resf.x / self.resf.y,
+                cursor[1] - 0.5
+            )
             self.calculate(t, cursor)
             self.render(t, cursor)  # расчет цветов пикселей
             gui.set_image(self.pixels)  # перенос пикселей из поля pixels в буфер кадра
